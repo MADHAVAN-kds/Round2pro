@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Login</title>
+  <link rel="stylesheet" href="login.css" />
+</head>
+<body>
+
+  <div class="login-box">
+    <h2>Bus Tracking Login</h2>
+
+    <input type="text" id="rollno" placeholder="Enter Roll Number" />
+    <input type="password" id="password" placeholder="Enter Password" />
+
+    <button onclick="login()">Login</button>
+
+    <p id="msg"></p>
+  </div>
+
+  <script src="login.js"></script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title data-i18n="title">School Bus Tracker - Live GPS</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+  /* ===== Unique "Aurora Glass" Theme (inline) ===== */
+  :root {
+    --blue: #7aa8ff;
+    --green: #7ee787;
+    --yellow: #ffe178;
+    --purple: #caa6ff;
+    --glass: rgba(28, 33, 55, 0.55);
+    --glass-strong: rgba(28, 33, 55, 0.75);
+    --outline: #4b5a86;
+    --text-dim: #c8d1e6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    color: #fff;
+    background:
+      radial-gradient( 1200px 600px at -10% -10%, #1a2b6c 0%, transparent 40% ),
+      radial-gradient( 900px 900px at 110% 10%, #5b1474 0%, transparent 50% ),
+      radial-gradient( 1000px 900px at 50% 120%, #083c65 0%, transparent 50% ),
+      linear-gradient(180deg, #0b1221 0%, #0c1428 100%);
+    background-attachment: fixed;
+    line-height: 1.5;
+  }
+  .blur {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  /* HEADER */
+  .app-header {
+    background: var(--glass);
+    border-bottom: 1px solid var(--outline);
+    padding: 0.75rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .logo-section { display: flex; align-items: center; gap: .75rem; }
+  .logo-icon {
+    font-size: 1.25rem;
+    width: 40px; height: 40px; border-radius: 10px;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--blue), #5f78ff);
+    box-shadow: 0 6px 20px rgba(122,168,255,.35), inset 0 0 18px rgba(255,255,255,.15);
+  }
+  .logo-section h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: .3px; }
+  .tagline { font-size: .85rem; color: var(--text-dim); }
+
+  .header-right { display: flex; align-items: center; gap: .75rem; }
+  .last-update { font-size: .85rem; color: var(--text-dim); }
+
+  .icon-btn, .sos-btn {
+    border: 1px solid var(--outline);
+    background: var(--glass-strong);
+    color: #fff;
+    padding: .45rem .7rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: transform .06s ease, box-shadow .2s ease, background .2s ease;
+  }
+  .icon-btn:hover { box-shadow: 0 6px 18px rgba(122,168,255,.25); }
+  .icon-btn:active { transform: translateY(1px); }
+
+  .sos-btn {
+    background: linear-gradient(135deg, #ff3b30, #b91c1c);
+    font-weight: 700;
+  }
+  .sos-btn:hover { box-shadow: 0 10px 24px rgba(255,59,48,.35); }
+
+  /* NAV */
+  .main-nav {
+    background: var(--glass);
+    border-bottom: 1px solid var(--outline);
+    display: flex; overflow-x: auto;
+  }
+  .main-nav button {
+    flex: 1 0 auto;
+    padding: .8rem 1rem; border: 0;
+    background: transparent; color: #d7e2ff;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: .2s ease;
+    white-space: nowrap;
+  }
+  .main-nav button:hover { color: #fff; background: rgba(255,255,255,.04); }
+  .main-nav button.active { color: var(--yellow); border-bottom-color: var(--yellow); }
+
+  /* CONTENT */
+  .content { padding: 1rem; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* GRID STATS */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr));
+    gap: 1rem; margin-bottom: 1.25rem;
+  }
+  .stats-card {
+    background: var(--glass);
+    border: 1px solid var(--outline);
+    border-radius: 14px;
+    padding: 1rem;
+    display: grid; grid-template-columns: 44px 1fr; gap: .8rem; align-items: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  }
+  .stats-icon { font-size: 1.35rem; filter: drop-shadow(0 4px 12px rgba(0,0,0,.35)); }
+  .stats-card h3 { font-size: .95rem; font-weight: 700; color: #e8ecff; }
+  .stats-card p { font-size: 1.6rem; font-weight: 800; letter-spacing: .3px; }
+  .stats-card span { font-size: .8rem; color: var(--text-dim); }
+
+  /* LAYOUT */
+  .overview-main {
+    display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;
+  }
+  .panel {
+    background: var(--glass);
+    border: 1px solid var(--outline);
+    border-radius: 14px; padding: 1rem;
+  }
+  #map { height: 340px; width: 100%; border-radius: 10px; }
+
+  /* LISTS */
+  .bus-list {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr));
+    gap: 1rem;
+  }
+  .bus-card {
+    background: var(--glass);
+    border: 1px solid var(--outline);
+    border-radius: 14px; padding: 1rem;
+    box-shadow: 0 6px 18px rgba(0,0,0,.25);
+  }
+  .status {
+    display: inline-block; font-size: .75rem; padding: 2px 6px; border-radius: 6px; font-weight: 700;
+  }
+  .status.on-route { background: #0b8f65; }
+  .status.delayed { background: #b91c1c; }
+  .status.idle { background: #1e40af; }
+
+  /* TOASTS */
+  .toast {
+    position: fixed; top: 18px; right: -360px;
+    min-width: 260px; padding: 12px 16px; border-radius: 12px;
+    background: var(--glass-strong); color: #fff; border: 1px solid var(--outline);
+    box-shadow: 0 6px 26px rgba(0,0,0,.35);
+    transition: all .35s ease; z-index: 9999;
+  }
+  .toast.show { right: 18px; }
+  .toast.info { border-color: #5f78ff; }
+  .toast.success { border-color: #1fb167; }
+  .toast.warning { border-color: #ffd166; color: #111; background: #ffd166; }
+  .toast.error { border-color: #ff6b6b; background: linear-gradient(135deg, #ff3b30, #9b1c1c); }
+
+  /* UTILS */
+  .row { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+  .grow { flex: 1; }
+  .select {
+    background: var(--glass-strong); color: #fff; border: 1px solid var(--outline);
+    padding: .45rem .6rem; border-radius: 10px;
+  }
+
+  @media (max-width: 900px) {
+    .overview-main { grid-template-columns: 1fr; }
+  }
+  </style>
+</head>
+<body>
+
+<header class="app-header blur">
+  <div class="logo-section">
+    <div class="logo-icon">🚌</div>
+    <div>
+      <h1 data-i18n="app_name">School Bus Tracker</h1>
+      <p class="tagline" data-i18n="tagline">Real-Time Tracking & Geofence Alerts</p>
+    </div>
+  </div>
+  <div class="header-right row">
+    <div class="row">
+      <label for="lang" data-i18n="language">Language</label>
+      <select id="lang" class="select"></select>
+    </div>
+    <button id="sosBtn" class="sos-btn" data-i18n="sos">SOS</button>
+    <div class="last-update" data-i18n="last_updated">Last updated: <span id="lastUpdate">--:--:--</span></div>
+    <button class="icon-btn" id="settingsBtn" title="Settings">⚙️</button>
+  </div>
+</header>
+
+<nav class="main-nav blur">
+  <button class="active" onclick="showView('overview', event)" data-i18n="tab_overview">Overview</button>
+  <button onclick="showView('buses', event)" data-i18n="tab_buses">Bus Fleet</button>
+  <button onclick="showView('students', event)" data-i18n="tab_students">Students</button>
+  <button onclick="showView('administrators', event)" data-i18n="tab_administrators">Administrators</button>
+  <button onclick="showView('alerts', event)" data-i18n="tab_alerts">Alerts</button>
+</nav>
+
+<main class="content">
+  <!-- Overview Tab -->
+  <section id="overview" class="view active">
+    <div class="stats-grid">
+      <div class="stats-card">
+        <div class="stats-icon">🚌</div>
+        <div>
+          <h3 data-i18n="stat_total_buses">Total Buses</h3>
+          <p id="statTotalBuses">0</p>
+          <span data-i18n="fleet_size">Fleet size</span>
+        </div>
+      </div>
+      <div class="stats-card">
+        <div class="stats-icon">📍</div>
+        <div>
+          <h3 data-i18n="stat_active_routes">Active Routes</h3>
+          <p id="statActiveBuses">0</p>
+          <span data-i18n="currently_on_route">Currently on route</span>
+        </div>
+      </div>
+      <div class="stats-card">
+        <div class="stats-icon">👥</div>
+        <div>
+          <h3 data-i18n="stat_students_tracking">Students Tracking</h3>
+          <p id="statTotalStudents">0</p>
+          <span data-i18n="total_enrolled">Total enrolled</span>
+        </div>
+      </div>
+      <div class="stats-card">
+        <div class="stats-icon">⚠️</div>
+        <div>
+          <h3 data-i18n="stat_delays">Delays</h3>
+          <p id="statDelayedBuses">0</p>
+          <span data-i18n="behind_schedule">Behind schedule</span>
+        </div>
+      </div>
+    </div>
+    <div class="overview-main">
+      <div class="panel">
+        <h2 data-i18n="live_map">Live Bus Map</h2>
+        <div id="map"></div>
+      </div>
+      <div class="panel">
+        <h2 data-i18n="recent_alerts">Recent Alerts</h2>
+        <ul id="recentAlerts"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Bus Fleet Tab -->
+  <section id="buses" class="view">
+    <h2 data-i18n="bus_fleet">Bus Fleet</h2>
+    <div id="busList" class="bus-list"></div>
+  </section>
+
+  <!-- Students Tab -->
+  <section id="students" class="view">
+    <h2 data-i18n="student_list">Student List</h2>
+    <ul id="studentList" class="student-list"></ul>
+  </section>
+
+  <!-- Administrators Tab -->
+  <section id="administrators" class="view">
+    <h2 data-i18n="administrator_list">Administrator List</h2>
+    <ul id="administratorList" class="administrator-list"></ul>
+  </section>
+
+  <!-- Alerts Tab -->
+  <section id="alerts" class="view">
+    <h2 data-i18n="all_alerts">All Alerts</h2>
+    <ul id="allAlerts" class="alert-list"></ul>
+  </section>
+</main>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+/* ========= Multilingual Engine ========= */
+const TRANSLATIONS = {
+  en: {
+    title: "School Bus Tracker - Live GPS",
+    app_name: "School Bus Tracker",
+    tagline: "Real-Time Tracking & Geofence Alerts",
+    language: "Language",
+    sos: "SOS",
+    last_updated: "Last updated: ",
+    tab_overview: "Overview",
+    tab_buses: "Bus Fleet",
+    tab_students: "Students",
+    tab_administrators: "Administrators",
+    tab_alerts: "Alerts",
+    stat_total_buses: "Total Buses",
+    stat_active_routes: "Active Routes",
+    stat_students_tracking: "Students Tracking",
+    stat_delays: "Delays",
+    fleet_size: "Fleet size",
+    currently_on_route: "Currently on route",
+    total_enrolled: "Total enrolled",
+    behind_schedule: "Behind schedule",
+    live_map: "Live Bus Map",
+    recent_alerts: "Recent Alerts",
+    bus_fleet: "Bus Fleet",
+    student_list: "Student List",
+    administrator_list: "Administrator List",
+    all_alerts: "All Alerts",
+    toast_enter: "{bus} has entered the school zone",
+    toast_leave: "{bus} has left the school zone",
+    toast_sos: "SOS Alert from {bus} sent to authorities!"
+  },
+  ta: {
+    title: "பள்ளி பேருந்து கண்காணிப்பு - நேரடி GPS",
+    app_name: "பள்ளி பேருந்து கண்காணிப்பு",
+    tagline: "உடனடி கண்காணிப்பு & ஜியோபென்ஸ் எச்சரிக்கைகள்",
+    language: "மொழி",
+    sos: "எஸ்.ஓ.எஸ்",
+    last_updated: "கடைசியாக புதுப்பித்தது: ",
+    tab_overview: "மேலோட்டம்",
+    tab_buses: "பேருந்து பட்டியல்",
+    tab_students: "மாணவர்கள்",
+    tab_administrators: "நிர்வாகிகள்",
+    tab_alerts: "எச்சரிக்கைகள்",
+    stat_total_buses: "மொத்த பேருந்துகள்",
+    stat_active_routes: "செயலில் உள்ள பாதைகள்",
+    stat_students_tracking: "மாணவர் கண்காணிப்பு",
+    stat_delays: "தாமதங்கள்",
+    fleet_size: "படை அளவு",
+    currently_on_route: "நடப்புப் பயணம்",
+    total_enrolled: "மொத்த பதிவு",
+    behind_schedule: "அட்டவணைக்கு பின்னால்",
+    live_map: "நேரடி வரைபடம்",
+    recent_alerts: "சமீபத்திய எச்சரிக்கைகள்",
+    bus_fleet: "பேருந்து பட்டியல்",
+    student_list: "மாணவர் பட்டியல்",
+    administrator_list: "நிர்வாகி பட்டியல்",
+    all_alerts: "அனைத்து எச்சரிக்கைகள்",
+    toast_enter: "{bus} பள்ளி பகுதியுள் நுழைந்தது",
+    toast_leave: "{bus} பள்ளி பகுதியை விட்டு வெளியேறியது",
+    toast_sos: "{bus} இலிருந்து SOS எச்சரிக்கை அனுப்பப்பட்டது!"
+  },
+  hi: {
+    title: "स्कूल बस ट्रैकर - लाइव GPS",
+    app_name: "स्कूल बस ट्रैकर",
+    tagline: "रीयल-टाइम ट्रैकिंग और जियोफेंस अलर्ट्स",
+    language: "भाषा",
+    sos: "एसओएस",
+    last_updated: "अंतिम अपडेट: ",
+    tab_overview: "ओवरव्यू",
+    tab_buses: "बस सूची",
+    tab_students: "छात्र",
+    tab_administrators: "प्रशासक",
+    tab_alerts: "अलर्ट",
+    stat_total_buses: "कुल बसें",
+    stat_active_routes: "सक्रिय रूट",
+    stat_students_tracking: "छात्र ट्रैकिंग",
+    stat_delays: "विलंब",
+    fleet_size: "बेड़े का आकार",
+    currently_on_route: "रूट पर",
+    total_enrolled: "कुल नामांकित",
+    behind_schedule: "समय से पीछे",
+    live_map: "लाइव बस मानचित्र",
+    recent_alerts: "हालिया अलर्ट",
+    bus_fleet: "बस सूची",
+    student_list: "छात्र सूची",
+    administrator_list: "प्रशासक सूची",
+    all_alerts: "सभी अलर्ट",
+    toast_enter: "{bus} स्कूल क्षेत्र में प्रवेश कर गई है",
+    toast_leave: "{bus} स्कूल क्षेत्र से बाहर गई है",
+    toast_sos: "{bus} से SOS अलर्ट भेजा गया!"
+  },
+  te: {
+    title: "స్కూల్ బస్ ట్రాకర్ - లైవ్ GPS",
+    app_name: "స్కూల్ బస్ ట్రాకర్",
+    tagline: "రియల్-టైమ్ ట్రాకింగ్ & జియోఫెన్స్ అలర్ట్స్",
+    language: "భాష",
+    sos: "SOS",
+    last_updated: "చివరి నవీకరణ: ",
+    tab_overview: "ఓవర్వ్యూ",
+    tab_buses: "బస్సుల జాబితా",
+    tab_students: "విద్యార్థులు",
+    tab_administrators: "నిర్వాహకులు",
+    tab_alerts: "అలర్ట్స్",
+    stat_total_buses: "మొత్తం బస్సులు",
+    stat_active_routes: "సక్రియ మార్గాలు",
+    stat_students_tracking: "విద్యార్థి ట్రాకింగ్",
+    stat_delays: "విలంబాలు",
+    fleet_size: "ఫ్లీట్ పరిమాణం",
+    currently_on_route: "మార్గంలో",
+    total_enrolled: "మొత్తం నమోదు",
+    behind_schedule: "షెడ్యూల్‌కు వెనుక",
+    live_map: "లైవ్ బస్ మ్యాప్",
+    recent_alerts: "తాజా అలర్ట్స్",
+    bus_fleet: "బస్సుల జాబితా",
+    student_list: "విద్యార్థుల జాబితా",
+    administrator_list: "నిర్వాహకుల జాబితా",
+    all_alerts: "అన్ని అలర్ట్స్",
+    toast_enter: "{bus} పాఠశాల ప్రాంతంలోకి ప్రవేశించింది",
+    toast_leave: "{bus} పాఠశాల ప్రాంతం నుండి బయటకు వెళ్లింది",
+    toast_sos: "{bus} నుండి SOS అలర్ట్ పంపబడింది!"
+  },
+  ml: {
+    title: "സ്കൂൾ ബസ് ട്രാക്കർ - തത്സമയ GPS",
+    app_name: "സ്കൂൾ ബസ് ട്രാക്കർ",
+    tagline: "തത്സമയ ട്രാക്കിംഗ് & ജിയോഫെൻസ് അലർട്ടുകൾ",
+    language: "ഭാഷ",
+    sos: "SOS",
+    last_updated: "അവസാനം പുതുക്കിയത്: ",
+    tab_overview: "ഓവർവ്യൂ",
+    tab_buses: "ബസ് പട്ടിക",
+    tab_students: "വിദ്യാർത്ഥികൾ",
+    tab_administrators: "നിര്വാഹകർ",
+    tab_alerts: "അലർട്ടുകൾ",
+    stat_total_buses: "ആകെ ബസുകൾ",
+    stat_active_routes: "സജീവ റൂട്ടുകൾ",
+    stat_students_tracking: "വിദ്യാർത്ഥി ട്രാക്കിംഗ്",
+    stat_delays: "താമസങ്ങൾ",
+    fleet_size: "ഫ്ലീറ്റ് വലുപ്പം",
+    currently_on_route: "റൂട്ടിൽ",
+    total_enrolled: "ആകെ ചേർത്തവർ",
+    behind_schedule: "ഷെഡ്യൂളിന് പിന്നിൽ",
+    live_map: "ലൈവ് ബസ് മാപ്പ്",
+    recent_alerts: "സമീപകാല അലർട്ടുകൾ",
+    bus_fleet: "ബസ് പട്ടിക",
+    student_list: "വിദ്യാർത്ഥി പട്ടിക",
+    administrator_list: "നിര്വാഹക പട്ടിക",
+    all_alerts: "എല്ലാ അലർട്ടുകളും",
+    toast_enter: "{bus} സ്കൂൾ മേഖലയിലേക്ക് പ്രവേശിച്ചു",
+    toast_leave: "{bus} സ്കൂൾ പ്രദേശത്തുനിന്ന് പുറത്തിറങ്ങി",
+    toast_sos: "{bus} നിന്നും SOS അലർട്ട് അയച്ചു!"
+  },
+  kn: {
+    title: "ಸ್ಕೂಲ್ ಬಸ್ ಟ್ರ್ಯಾಕರ್ - ಲೈವ್ GPS",
+    app_name: "ಸ್ಕೂಲ್ ಬಸ್ ಟ್ರ್ಯಾಕರ್",
+    tagline: "ರಿಯಲ್-ಟೈಮ್ ಟ್ರ್ಯಾಕಿಂಗ್ ಮತ್ತು ಜಿಯೋಫೆನ್ಸ್ ಎಚ್ಚರಿಕೆ",
+    language: "ಭಾಷೆ",
+    sos: "SOS",
+    last_updated: "ಕೊನೆಯ ನವೀಕರಣ: ",
+    tab_overview: "ಒವರ್‌ವ್ಯೂ",
+    tab_buses: "ಬಸ್ ಪಟ್ಟಿ",
+    tab_students: "ವಿದ್ಯಾರ್ಥಿಗಳು",
+    tab_administrators: "ನಿರ್ವಾಹಕರು",
+    tab_alerts: "ಎಚ್ಚರಿಕೆ",
+    stat_total_buses: "ಒಟ್ಟು ಬಸ್‌ಗಳು",
+    stat_active_routes: "ಸಕ್ರಿಯ ಮಾರ್ಗಗಳು",
+    stat_students_tracking: "ವಿದ್ಯಾರ್ಥಿ ಟ್ರ್ಯಾಕಿಂಗ್",
+    stat_delays: "ವಿಳಂಬಗಳು",
+    fleet_size: "ಫ್ಲೀಟ್ ಗಾತ್ರ",
+    currently_on_route: "ಮಾರ್ಗದಲ್ಲಿ",
+    total_enrolled: "ಒಟ್ಟು ದಾಖಲೆ",
+    behind_schedule: "ಕಾಲಕಟ್ಟಿಗೆ ಹಿಂದೆ",
+    live_map: "ಲೈವ್ ಬಸ್ ನಕ್ಷೆ",
+    recent_alerts: "ಇತ್ತೀಚಿನ ಎಚ್ಚರಿಕೆ",
+    bus_fleet: "ಬಸ್ ಪಟ್ಟಿ",
+    student_list: "ವಿದ್ಯಾರ್ಥಿ ಪಟ್ಟಿ",
+    administrator_list: "ನಿರ್ವಾಹಕ ಪಟ್ಟಿ",
+    all_alerts: "ಎಲ್ಲ ಎಚ್ಚರಿಕೆ",
+    toast_enter: "{bus} ಶಾಲಾ ಪ್ರದೇಶಕ್ಕೆ ಪ್ರವೇಶಿಸಿದೆ",
+    toast_leave: "{bus} ಶಾಲಾ ಪ್ರದೇಶದಿಂದ ಹೊರಟಿದೆ",
+    toast_sos: "{bus} ಕಡೆಯಿಂದ SOS ಎಚ್ಚರಿಕೆ ಕಳುಹಿಸಲಾಗಿದೆ!"
+  }
+};
+
+const SUPPORTED = Object.keys(TRANSLATIONS);
+const LANGUAGE_NAMES = new Intl.DisplayNames(SUPPORTED, { type: 'language' });
+
+function populateLanguageSelect() {
+  const sel = document.getElementById('lang');
+  sel.innerHTML = '';
+  SUPPORTED.forEach(code => {
+    const opt = document.createElement('option');
+    opt.value = code;
+    // Fallback to code if display name fails
+    let label = (LANGUAGE_NAMES.of(code) || code).toString();
+    // English endonyms for clarity
+    const labels = { en: "English", hi: "Hindi (हिंदी)", ta: "Tamil (தமிழ்)", te: "Telugu (తెలుగు)", ml: "Malayalam (മലയാളം)", kn: "Kannada (ಕನ್ನಡ)" };
+    opt.textContent = labels[code] || label;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', () => setLanguage(sel.value));
+}
+
+function setLanguage(lang) {
+  if (!SUPPORTED.includes(lang)) lang = 'en';
+  localStorage.setItem('lang', lang);
+  document.documentElement.lang = lang;
+  const dict = TRANSLATIONS[lang];
+
+  // Update static strings
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (!key) return;
+    if (el.tagName.toLowerCase() === 'title') {
+      document.title = dict[key] || TRANSLATIONS.en[key] || document.title;
+    } else if (el.id === 'lastUpdate') {
+      // skip: dynamic time is appended next to label
+    } else {
+      el.textContent = (dict[key] || TRANSLATIONS.en[key] || el.textContent);
+    }
+  });
+
+  // Update tab button text
+  document.querySelectorAll('.main-nav button[data-i18n]').forEach(btn => {
+    const key = btn.getAttribute('data-i18n');
+    btn.textContent = dict[key] || TRANSLATIONS.en[key] || btn.textContent;
+  });
+
+  // Update section headings
+  document.querySelectorAll('section h2[data-i18n]').forEach(h2 => {
+    const key = h2.getAttribute('data-i18n');
+    h2.textContent = dict[key] || TRANSLATIONS.en[key] || h2.textContent;
+  });
+
+  // Prefix label for last updated
+  const lastLabel = dict['last_updated'] || TRANSLATIONS.en['last_updated'];
+  const container = document.querySelector('.last-update');
+  if (container) {
+    const timeSpan = document.getElementById('lastUpdate');
+    container.innerHTML = `${lastLabel}<span id="lastUpdate">${timeSpan ? timeSpan.textContent : '--:--:--'}</span>`;
+  }
+}
+
+function format(dictKey, values = {}) {
+  const lang = localStorage.getItem('lang') || 'en';
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  const tmpl = dict[dictKey] || TRANSLATIONS.en[dictKey] || '';
+  return tmpl.replace(/\{(\w+)\}/g, (_, k) => values[k] ?? '');
+}
+
+/* ========= Original App Logic (merged & enhanced) ========= */
+// ===== CONFIG =====
+const busName = "6384564923"; // Change to your bus name or Traccar device ID
+const geofenceRadius = 1000; // meters
+const geofenceCenter = [28.6139, 77.2090]; // Example: New Delhi
+let insideGeofence = false;
+
+// ===== SAMPLE DATA =====
+let buses = [
+  {
+    id: 1,
+    number: "Bus-1",
+    driver: "Sanju",
+    route: "North Zone",
+    status: "on-route",
+    capacity: 40,
+    gpsDeviceId: "73971 97250"
+  },
+  {
+    id: 2,
+    number: "Bus-2",
+    driver: "Sanjay",
+    route: "East Zone",
+    status: "delayed",
+    capacity: 35,
+    gpsDeviceId: "90876 97823"
+  },
+  {
+    id: 3,
+    number: "Bus-3",
+    driver: "Dhanush",
+    route: "South Zone",
+    status: "idle",
+    capacity: 50,
+    gpsDeviceId: "63831 83629"
+  }
+];
+let students = [
+  { id: 101, name: "Abishek", bus: "Bus-1", grade: "5", parentContact: "75400 06353" },
+  { id: 102, name: "Vignesh", bus: "Bus-2", grade: "6", parentContact: "82480 72341" },
+  { id: 103, name: "Sam", bus: "Bus-3", grade: "7", parentContact: "93613 40365" }
+];
+let alerts = [
+  { id: 1, message: "Bus-2 is delayed by 10 minutes" },
+  { id: 2, message: "Bus-1 is near your stop" }
+];
+let administrators = [
+  { id: 1, name: "Principal Vijay", role: "Principal", contact: "vijay@school.edu" },
+  { id: 2, name: "Transport Manager Ajith", role: "Transport Manager", contact: "ajith@school.edu" }
+];
+
+// ===== TOASTS =====
+function showToast(message, type = "info") {
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("show"));
+  setTimeout(() => { toast.classList.remove("show"); setTimeout(() => toast.remove(), 300); }, 4800);
+}
+
+// ===== NAVIGATION =====
+function showView(viewId, ev) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById(viewId).classList.add("active");
+  document.querySelectorAll(".main-nav button").forEach(b => b.classList.remove("active"));
+  if (ev && ev.target) ev.target.classList.add("active");
+}
+
+// ===== RENDER =====
+function renderStats() {
+  document.getElementById("statTotalBuses").textContent = buses.length;
+  document.getElementById("statActiveBuses").textContent = buses.filter(b => b.status === "on-route").length;
+  document.getElementById("statTotalStudents").textContent = students.length;
+  document.getElementById("statDelayedBuses").textContent = buses.filter(b => b.status === "delayed").length;
+}
+function renderStudents() {
+  const ul = document.getElementById("studentList"); ul.innerHTML = "";
+  students.forEach(s => { const li = document.createElement("li"); li.textContent = `${s.name} - ${s.bus}`; ul.appendChild(li); });
+}
+function renderBuses() {
+  const list = document.getElementById("busList"); list.innerHTML = "";
+  buses.forEach(b => {
+    const div = document.createElement("div");
+    div.className = "bus-card";
+    div.innerHTML = `<h4>${b.number}</h4>
+      <p>Driver: ${b.driver}</p>
+      <p>Route: ${b.route}</p>
+      <span class="status ${b.status}">${b.status}</span>`;
+    list.appendChild(div);
+  });
+}
+function renderAlerts() {
+  const recentList = document.getElementById("recentAlerts");
+  const allList = document.getElementById("allAlerts");
+  recentList.innerHTML = ""; allList.innerHTML = "";
+  alerts.forEach(a => { const li = document.createElement("li"); li.textContent = a.message; allList.appendChild(li); });
+  alerts.slice(0,5).forEach(a => { const li = document.createElement("li"); li.textContent = a.message; recentList.appendChild(li); });
+}
+function renderAdministrators() {
+  const ul = document.getElementById("administratorList");
+  ul.innerHTML = "";
+  administrators.forEach(a => {
+    const li = document.createElement("li");
+    li.textContent = `${a.name} (${a.role}) - ${a.contact}`;
+    ul.appendChild(li);
+  });
+}
+
+// ===== MAP =====
+let map = L.map('map').setView([28.6139, 77.2090], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
+let busMarker;
+let geofenceCircle = L.circle(geofenceCenter, {
+  color: "#7aa8ff", fillColor: "#7aa8ff", fillOpacity: 0.15, radius: geofenceRadius
+}).addTo(map);
+
+// ===== TRACCAR (DEMO) =====
+// NOTE: Keep credentials secure in production. Use env vars/server proxy.
+const traccarURL = `https://demo.traccar.org/api/positions?deviceId=${busName}`;
+const traccarUsername = "MADHAVAN K";
+const traccarPassword = "9790";
+
+async function fetchBusLocation() {
+  try {
+    let res = await fetch(traccarURL, { headers: { "Authorization": "Basic " + btoa(`${traccarUsername}:${traccarPassword}`) } });
+    let data = await res.json();
+    if (!Array.isArray(data) || !data.length) return;
+    const { latitude, longitude } = data[0];
+    if (!busMarker) {
+      busMarker = L.marker([latitude, longitude]).addTo(map)
+        .bindPopup(`<b>${busName}</b><br>Route: North Zone`);
+    } else {
+      busMarker.setLatLng([latitude, longitude]);
+    }
+    checkGeofence(latitude, longitude);
+  } catch (err) {
+    console.error("Error fetching location:", err);
+  }
+}
+
+function checkGeofence(lat, lng) {
+  const distance = map.distance([lat, lng], geofenceCenter);
+  if (distance <= geofenceRadius && !insideGeofence) {
+    insideGeofence = true;
+    showToast(format('toast_enter', { bus: busName }), "success");
+  } else if (distance > geofenceRadius && insideGeofence) {
+    insideGeofence = false;
+    showToast(format('toast_leave', { bus: busName }), "warning");
+  }
+}
+
+// ===== SOS =====
+document.getElementById("sosBtn").addEventListener("click", () => {
+  showToast(format('toast_sos', { bus: busName }), "error");
+});
+
+// ===== INIT =====
+function init() {
+  populateLanguageSelect();
+  const preferred = localStorage.getItem('lang') || (navigator.language || 'en').slice(0,2);
+  setLanguage(SUPPORTED.includes(preferred) ? preferred : 'en');
+  document.getElementById('lang').value = localStorage.getItem('lang') || 'en';
+
+  renderStats();
+  renderStudents();
+  renderBuses();
+  renderAdministrators();
+  renderAlerts();
+  fetchBusLocation();
+}
+init();
+
+// ===== AUTO REFRESH =====
+setInterval(fetchBusLocation, 10000);
+setInterval(() => {
+  const t = new Date().toLocaleTimeString();
+  const span = document.getElementById("lastUpdate");
+  if (span) span.textContent = t;
+}, 1000);
+</script>
+</body>
+</html>
